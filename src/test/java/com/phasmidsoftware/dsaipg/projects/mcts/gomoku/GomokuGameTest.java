@@ -1,5 +1,6 @@
 package com.phasmidsoftware.dsaipg.projects.mcts.gomoku;
 
+import com.phasmidsoftware.dsaipg.projects.mcts.core.State;
 import org.junit.Test;
 import static org.junit.Assert.*;
 import java.util.*;
@@ -75,4 +76,13 @@ public class GomokuGameTest {
         GomokuGame game = new GomokuGame(new PredefinedPlayer(p1), new PredefinedPlayer(p2), 3);
         game.play();
     }
+
+    @Test
+    public void testStartAndOpener() {
+        GomokuGame game = new GomokuGame();
+        State<GomokuGame> state = game.start();
+        assertNotNull(state);
+        assertEquals(GomokuState.PLAYER_ONE, game.opener());
+    }
+
 }

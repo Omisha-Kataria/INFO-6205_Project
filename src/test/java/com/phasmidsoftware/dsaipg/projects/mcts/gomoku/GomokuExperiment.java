@@ -3,8 +3,8 @@ package com.phasmidsoftware.dsaipg.projects.mcts.gomoku;
 import java.util.function.Supplier;
 
 public class GomokuExperiment {
-    private static final int[] GAME_COUNTS = {10, 20, 50, 100, 200};
-    private static final int[] ITERATIONS = {250, 500, 1000, 2000, 4000};
+    private static final int[] GAME_COUNTS = {10, 20, 40, 80, 100};
+    private static final int[] ITERATIONS = {100, 200, 500, 1000};
 
     public static void main(String[] args) {
         System.out.println("=== Gomoku MCTS Benchmark & Win Rates ===");
