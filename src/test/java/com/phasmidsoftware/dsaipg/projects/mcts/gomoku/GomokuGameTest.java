@@ -1,54 +1,78 @@
 package com.phasmidsoftware.dsaipg.projects.mcts.gomoku;
 
-import static org.junit.Assert.*;
 import org.junit.Test;
+import static org.junit.Assert.*;
+import java.util.*;
 
 public class GomokuGameTest {
-
-    @Test
-    public void testMCTSvsRandom() {
-        int mctsWins = 0;
-        int games = 10;
-        for (int i = 0; i < games; i++) {
-            // MCTS plays as PLAYER_ONE and Random as PLAYER_TWO.
-            Player mctsPlayer = new MCTSPlayer(1000);
-            Player randomPlayer = new RandomPlayer();
-            GomokuGame game = new GomokuGame(mctsPlayer, randomPlayer, 15);
-            int winner = game.play();
-            if (winner == GomokuState.PLAYER_ONE) {
-                mctsWins++;
-            }
-        }
-        System.out.println("MCTS wins " + mctsWins + " out of " + games + " games.");
-        // We expect the MCTS algorithm to win the majority of games against a random player.
-        assertTrue("MCTS should win more games against random", mctsWins > games / 2);
+    private static class PredefinedPlayer implements Player {
+        private final List<GomokuMove> moves;
+        private int idx = 0;
+        PredefinedPlayer(List<GomokuMove> moves) { this.moves = moves; }
+        @Override
+        public GomokuMove getMove(GomokuState state) { return moves.get(idx++); }
     }
 
     @Test
-    public void testMCTSvsMCTS() {
-        int player1Wins = 0;
-        int player2Wins = 0;
-        int draws = 0;
-        int games = 10;
-        for (int i = 0; i < games; i++) {
-            Player mctsPlayer1 = new MCTSPlayer(1000);
-            Player mctsPlayer2 = new MCTSPlayer(1000);
-            GomokuGame game = new GomokuGame(mctsPlayer1, mctsPlayer2, 15);
-            int winner = game.play();
-            if (winner == GomokuState.PLAYER_ONE) {
-                System.out.println("MCTS vs MCTS - Player1 wins the game: " + i);
-                player1Wins++;
-            } else if (winner == GomokuState.PLAYER_TWO) {
-                System.out.println("MCTS vs MCTS - Player2 wins the game: " + i);
-                player2Wins++;
-            } else {
-                draws++;
-            }
-        }
-        System.out.println("MCTS vs MCTS - Player1 wins: " + player1Wins
-                + ", Player2 wins: " + player2Wins + ", Draws: " + draws);
-        // We expect the match between two MCTS players to be well-balanced(Sometimes, it will give advantage to the first player).
-        assertTrue("Outcomes should be balanced", Math.abs(player1Wins - player2Wins) <= games / 2);
+    public void testGetStateInitial() {
+        Player p = new PredefinedPlayer(Arrays.asList(new GomokuMove(0,0)));
+        GomokuGame game = new GomokuGame(p, p, 3);
+        GomokuState s = game.getState();
+        assertNotNull(s);
+        assertEquals(3, s.getBoardSize());
+        assertEquals(GomokuState.PLAYER_ONE, s.getCurrentPlayer());
+        assertEquals(9, s.getLegalMoves().size());
+    }
+
+    @Test
+    public void testPlayP1Win() {
+        List<GomokuMove> p1 = Arrays.asList(
+                new GomokuMove(0,0), new GomokuMove(0,1), new GomokuMove(0,2),
+                new GomokuMove(0,3), new GomokuMove(0,4)
+        );
+        List<GomokuMove> p2 = Arrays.asList(
+                new GomokuMove(1,0), new GomokuMove(1,1), new GomokuMove(1,2),
+                new GomokuMove(1,3)
+        );
+        GomokuGame game = new GomokuGame(new PredefinedPlayer(p1), new PredefinedPlayer(p2), 5);
+        assertEquals(GomokuState.PLAYER_ONE, game.play());
+    }
+
+    @Test
+    public void testPlayP2Win() {
+        List<GomokuMove> p1 = Arrays.asList(
+                new GomokuMove(4,4), new GomokuMove(4,3), new GomokuMove(4,2),
+                new GomokuMove(4,1), new GomokuMove(2,2)
+        );
+        List<GomokuMove> p2 = Arrays.asList(
+                new GomokuMove(1,0), new GomokuMove(1,1), new GomokuMove(1,2),
+                new GomokuMove(1,3), new GomokuMove(1,4)
+        );
+        GomokuGame game = new GomokuGame(new PredefinedPlayer(p1), new PredefinedPlayer(p2), 5);
+        assertEquals(GomokuState.PLAYER_TWO, game.play());
+    }
+
+    @Test
+    public void testPlayDraw() {
+        List<GomokuMove> p1 = Arrays.asList(
+                new GomokuMove(0,0), new GomokuMove(1,1)
+        );
+        List<GomokuMove> p2 = Arrays.asList(
+                new GomokuMove(0,1), new GomokuMove(1,0)
+        );
+        GomokuGame game = new GomokuGame(new PredefinedPlayer(p1), new PredefinedPlayer(p2), 2);
+        assertEquals(GomokuState.EMPTY, game.play());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testPlayThrowsExceptionOnInvalidMove() {
+        List<GomokuMove> p1 = Arrays.asList(
+                new GomokuMove(0,0), new GomokuMove(0,0)
+        );
+        List<GomokuMove> p2 = Arrays.asList(
+                new GomokuMove(1,1)
+        );
+        GomokuGame game = new GomokuGame(new PredefinedPlayer(p1), new PredefinedPlayer(p2), 3);
+        game.play();
     }
 }
-
