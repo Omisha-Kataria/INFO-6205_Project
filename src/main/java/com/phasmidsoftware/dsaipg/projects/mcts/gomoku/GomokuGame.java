@@ -37,18 +37,4 @@ public class GomokuGame {
     public GomokuState getState() {
         return state;
     }
-
-    public static void main(String[] args) {
-        Player mctsPlayer = new MCTSPlayer(1000);
-        Player randomPlayer = new RandomPlayer();
-        GomokuGame game = new GomokuGame(mctsPlayer, randomPlayer, 15);
-        int winner = game.play();
-        System.out.println("Final board:");
-        System.out.println(game.getState());
-        if (winner == GomokuState.EMPTY) {
-            System.out.println("It's a draw.");
-        } else {
-            System.out.println("Winner: " + (winner == GomokuState.PLAYER_ONE ? "Player 1" : "Player 2"));
-        }
-    }
 }
