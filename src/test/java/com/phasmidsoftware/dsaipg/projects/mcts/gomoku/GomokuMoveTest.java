@@ -43,4 +43,13 @@ public class GomokuMoveTest {
         GomokuMove m = new GomokuMove(0, 0);
         assertEquals("(0, 0)", m.toString());
     }
+
+    @Test
+    public void testMoveWithPlayer() {
+        GomokuMove move = new GomokuMove(1, 2, GomokuState.PLAYER_TWO);
+        assertEquals(1, move.getRow());
+        assertEquals(2, move.getCol());
+        assertEquals(GomokuState.PLAYER_TWO, move.player());
+    }
+
 }

@@ -1,7 +1,10 @@
 package com.phasmidsoftware.dsaipg.projects.mcts.gomoku;
 
+import com.phasmidsoftware.dsaipg.projects.mcts.core.Move;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.util.Collection;
 import java.util.List;
 import static org.junit.Assert.*;
 
@@ -115,4 +118,59 @@ public class GomokuStateTest {
         assertTrue(s.isTerminal());
         assertEquals(GomokuState.EMPTY, s.checkWin());
     }
+
+    @Test
+    public void testCloneContent() {
+        state.makeMove(new GomokuMove(1, 1));
+        GomokuState clone = state.clone();
+        assertEquals(state.getBoardSize(), clone.getBoardSize());
+        assertEquals(state.getBoard()[1][1], clone.getBoard()[1][1]);
+    }
+
+    @Test
+    public void testAllEqualFails() {
+        int[][] board = state.getBoard();
+        for (int j = 0; j < 4; j++) board[0][j] = GomokuState.PLAYER_ONE;
+        board[0][4] = GomokuState.PLAYER_TWO;
+        assertEquals(GomokuState.EMPTY, state.checkWin()); // No win
+    }
+
+    @Test
+    public void testCloneDeepEquality() {
+        state.makeMove(new GomokuMove(2, 2));
+        GomokuState clone = state.clone();
+        assertArrayEquals(state.getBoard(), clone.getBoard());
+        assertEquals(state.getCurrentPlayer(), clone.getCurrentPlayer());
+    }
+
+    @Test
+    public void testWinnerOptional() {
+        int[][] board = state.getBoard();
+        for (int j = 0; j < 5; j++) board[0][j] = GomokuState.PLAYER_ONE;
+        assertTrue(state.winner().isPresent());
+        assertEquals(Integer.valueOf(GomokuState.PLAYER_ONE), state.winner().get());
+    }
+
+    @Test
+    public void testMovesInterfaceMethod() {
+        Collection<Move<GomokuGame>> moves = state.moves(state.getCurrentPlayer());
+        assertEquals(25, moves.size());
+    }
+
+    @Test
+    public void testRandomNonNull() {
+        assertNotNull(state.random());
+    }
+
+
+    @Test
+    public void testPlayerMethod() {
+        assertEquals(GomokuState.PLAYER_ONE, state.player());
+    }
+
+    @Test
+    public void testGameMethod() {
+        assertNotNull(state.game());
+    }
+
 }

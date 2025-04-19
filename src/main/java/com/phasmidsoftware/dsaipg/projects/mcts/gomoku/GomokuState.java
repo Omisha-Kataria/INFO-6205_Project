@@ -1,15 +1,17 @@
 package com.phasmidsoftware.dsaipg.projects.mcts.gomoku;
 
-import java.util.ArrayList;
-import java.util.List;
+import com.phasmidsoftware.dsaipg.projects.mcts.core.Move;
+import com.phasmidsoftware.dsaipg.projects.mcts.core.State;
 
-public class GomokuState implements Cloneable {
+import java.util.*;
+
+public class GomokuState implements State<GomokuGame>, Cloneable {
     public static final int EMPTY = 0;
     public static final int PLAYER_ONE = 1;
     public static final int PLAYER_TWO = 2;
 
-    private int[][] board;
-    private int boardSize;
+    private final int[][] board;
+    private final int boardSize;
     private int currentPlayer;
 
     public GomokuState() {
@@ -18,26 +20,50 @@ public class GomokuState implements Cloneable {
 
     public GomokuState(int boardSize) {
         this.boardSize = boardSize;
-        board = new int[boardSize][boardSize];
-        currentPlayer = PLAYER_ONE;
+        this.board = new int[boardSize][boardSize];
+        this.currentPlayer = PLAYER_ONE;
     }
 
-    public int getCurrentPlayer() {
+    @Override
+    public GomokuGame game() {
+        return new GomokuGame(null, null, boardSize);
+    }
+
+    @Override
+    public boolean isTerminal() {
+        return checkWin() != EMPTY || getLegalMoves().isEmpty();
+    }
+
+    @Override
+    public int player() {
         return currentPlayer;
     }
 
-    public int getBoardSize() {
-        return boardSize;
+    @Override
+    public Optional<Integer> winner() {
+        int winner = checkWin();
+        return winner == EMPTY ? Optional.empty() : Optional.of(winner);
     }
 
-    public int[][] getBoard() {
-        return board;
+    @Override
+    public Random random() {
+        return new Random(); // optionally reuse one
     }
 
-    /**
-     *
-     * Return all empty positions as legal moves.
-     */
+    @Override
+    public Collection<Move<GomokuGame>> moves(int player) {
+        return new ArrayList<>(getLegalMoves()); // GomokuMove implements Move<GomokuGame>
+    }
+
+    @Override
+    public State<GomokuGame> next(Move<GomokuGame> move) {
+        GomokuState next = this.clone();
+        next.makeMove((GomokuMove) move);
+        return next;
+    }
+
+    // ====== GAME LOGIC ======
+
     public List<GomokuMove> getLegalMoves() {
         List<GomokuMove> legalMoves = new ArrayList<>();
         for (int i = 0; i < boardSize; i++) {
@@ -50,10 +76,6 @@ public class GomokuState implements Cloneable {
         return legalMoves;
     }
 
-    /**
-     * Place the current player's mark and then switch to the opponent.
-     * @param move
-     */
     public void makeMove(GomokuMove move) {
         if (board[move.getRow()][move.getCol()] != EMPTY) {
             throw new IllegalArgumentException("Invalid move! Position already occupied.");
@@ -62,80 +84,39 @@ public class GomokuState implements Cloneable {
         currentPlayer = getOpponent(currentPlayer);
     }
 
-    /**
-     *
-     * @param player
-     * Returns the opponent number.
-     */
     public static int getOpponent(int player) {
         return player == PLAYER_ONE ? PLAYER_TWO : PLAYER_ONE;
     }
 
-    /**
-     *
-     * The game ends if somebody wins or there are no moves left.
-     */
-    public boolean isTerminal() {
-        return (checkWin() != EMPTY) || getLegalMoves().isEmpty();
-    }
-
-    /**
-     * Check every cell for any occurrence of 5 in a row.
-     * Returns the winning player number or EMPTY if there is no winner.
-     */
     public int checkWin() {
         for (int i = 0; i < boardSize; i++) {
             for (int j = 0; j < boardSize; j++) {
                 int player = board[i][j];
-                if (player == EMPTY)
-                    continue;
+                if (player == EMPTY) continue;
 
-                if (j <= boardSize - 5) {
-                    boolean win = true;
-                    for (int k = 0; k < 5; k++) {
-                        if (board[i][j + k] != player) {
-                            win = false;
-                            break;
-                        }
-                    }
-                    if (win) return player;
-                }
+                // Horizontal
+                if (j <= boardSize - 5 && allEqual(player, i, j, 0, 1)) return player;
 
-                if (i <= boardSize - 5) {
-                    boolean win = true;
-                    for (int k = 0; k < 5; k++) {
-                        if (board[i + k][j] != player) {
-                            win = false;
-                            break;
-                        }
-                    }
-                    if (win) return player;
-                }
+                // Vertical
+                if (i <= boardSize - 5 && allEqual(player, i, j, 1, 0)) return player;
 
-                if (i <= boardSize - 5 && j <= boardSize - 5) {
-                    boolean win = true;
-                    for (int k = 0; k < 5; k++) {
-                        if (board[i + k][j + k] != player) {
-                            win = false;
-                            break;
-                        }
-                    }
-                    if (win) return player;
-                }
+                // Diagonal (\)
+                if (i <= boardSize - 5 && j <= boardSize - 5 && allEqual(player, i, j, 1, 1)) return player;
 
-                if (i >= 4 && j <= boardSize - 5) {
-                    boolean win = true;
-                    for (int k = 0; k < 5; k++) {
-                        if (board[i - k][j + k] != player) {
-                            win = false;
-                            break;
-                        }
-                    }
-                    if (win) return player;
-                }
+                // Anti-diagonal (/)
+                if (i >= 4 && j <= boardSize - 5 && allEqual(player, i, j, -1, 1)) return player;
             }
         }
         return EMPTY;
+    }
+
+    private boolean allEqual(int player, int startRow, int startCol, int dRow, int dCol) {
+        for (int k = 1; k < 5; k++) {
+            if (board[startRow + k * dRow][startCol + k * dCol] != player) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
@@ -148,13 +129,24 @@ public class GomokuState implements Cloneable {
         return cloneState;
     }
 
+    public int[][] getBoard() {
+        return board;
+    }
+
+    public int getBoardSize() {
+        return boardSize;
+    }
+
+    public int getCurrentPlayer() {
+        return currentPlayer;
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < boardSize; i++) {
-            for (int j = 0; j < boardSize; j++) {
-                sb.append(board[i][j] == EMPTY ? "." : board[i][j] == PLAYER_ONE ? "X" : "O");
-                sb.append(" ");
+        for (int[] row : board) {
+            for (int cell : row) {
+                sb.append(cell == EMPTY ? "." : (cell == PLAYER_ONE ? "X" : "O")).append(" ");
             }
             sb.append("\n");
         }

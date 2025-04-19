@@ -1,25 +1,46 @@
 package com.phasmidsoftware.dsaipg.projects.mcts.gomoku;
 
-public class GomokuGame {
+import com.phasmidsoftware.dsaipg.projects.mcts.core.Game;
+import com.phasmidsoftware.dsaipg.projects.mcts.core.State;
+
+public class GomokuGame implements Game<GomokuGame> {
     private GomokuState state;
-    private Player player1;
-    private Player player2;
+    private final Player player1;
+    private final Player player2;
 
     /**
-     *
-     * @param player1
-     * @param player2
-     * @param boardSize
+     * Constructor to initialize players and board size
+     * @param player1 the first player
+     * @param player2 the second player
+     * @param boardSize size of the board
      */
     public GomokuGame(Player player1, Player player2, int boardSize) {
-        state = new GomokuState(boardSize);
+        this.state = new GomokuState(boardSize);
         this.player1 = player1;
         this.player2 = player2;
     }
 
     /**
-     *
-     * Returns the winner (PLAYER_ONE, PLAYER_TWO, or EMPTY for draw).
+     * Constructor used by MCTS core to initialize a default game state.
+     * Players are null as they are not needed for simulation.
+     */
+    public GomokuGame() {
+        this(null, null, 15); // default board size
+    }
+
+    @Override
+    public State<GomokuGame> start() {
+        return new GomokuState(); // default board size of 15
+    }
+
+    @Override
+    public int opener() {
+        return GomokuState.PLAYER_ONE;
+    }
+
+    /**
+     * Play the game until terminal state is reached.
+     * @return the winner (PLAYER_ONE, PLAYER_TWO, or EMPTY for draw).
      */
     public int play() {
         while (!state.isTerminal()) {
