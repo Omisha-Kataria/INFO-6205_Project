@@ -61,7 +61,7 @@ public interface Node<G extends Game> {
      *
      * @param state the State for the new chile.
      */
-    void addChild(State<G> state);
+    void addChild(State<G> state , Move<G> move);
 
     /**
      * @return the score for this Node and its descendents a win is worth 2 points, a draw is worth 1 point.
@@ -74,8 +74,11 @@ public interface Node<G extends Game> {
     int playouts();
 
     private void addChildren(final State<G> state) {
-        for (Iterator<Move<G>> it = state.moveIterator(state.player()); it.hasNext(); )
-            addChild(state.next(it.next()));
+        for (Iterator<Move<G>> it = state.moveIterator(state.player()); it.hasNext(); ) {
+            Move<G> move = it.next();
+            State<G> nextState = state.next(move);
+            addChild(nextState, move);
+        }
     }
 
 }
