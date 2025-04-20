@@ -67,8 +67,6 @@ public class Position {
             matrix[x][y]=player;
             System.out.println(new Position(matrix, count+1, player).render() );
             return new Position(matrix, count+1, player);
-            //return null;
-            // END SOLUTION
         }
         throw new RuntimeException("Position is occupied: " + x + ", " + y);
     }
@@ -91,8 +89,6 @@ public class Position {
 
     /**
      * Method to yield a copy of this Position but reflected.
-     * <p>
-     * TESTME
      *
      * @param axis the axis about which to reflect.
      * @return a new Position.
@@ -114,8 +110,6 @@ public class Position {
 
     /**
      * Method to rotate this Position by 90 degrees clockwise.
-     * TESTME
-     *
      * @return a new Position which is rotated from this.
      */
     public Position rotate() {
@@ -139,9 +133,6 @@ public class Position {
     /**
      * Method to determine if this Position has three in a row (i.e. a winning position).
      * Don't forget to check for columns and diagonals as well.
-     * <p>
-     * NOTE: you may find the instance field xxx to be useful, as well as the projectRow, projectCol, etc. private methods.
-     *
      * @return true if there are three cells in a line that are the same and equal to the last player.
      */
     boolean threeInARow() {
@@ -281,8 +272,6 @@ public class Position {
     }
 
     /**
-     * TESTME
-     *
      * @param matrix the matrix to be operated on.
      * @param i1     first row.
      * @param j1     first column.
