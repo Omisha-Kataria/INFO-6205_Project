@@ -53,8 +53,8 @@ public class TicTacToeNode implements Node<TicTacToe> {
     @Override public boolean white()                 { return state.player() == state.game().opener(); }
     @Override public Collection<Node<TicTacToe>> children() { return children; }
     @Override
-    public void addChild(State<TicTacToe> st) {
-        children.add(new TicTacToeNode(st, this,null));
+    public void addChild(State<TicTacToe> st, Move<TicTacToe> move) {
+        children.add(new TicTacToeNode(st, this, move));
     }
     @Override
     public void backPropagate() {
@@ -94,7 +94,6 @@ public class TicTacToeNode implements Node<TicTacToe> {
         if (isLeaf() || !children.isEmpty()) return;
         for (Move<TicTacToe> m : state.moves(state.player())) {
             State<TicTacToe> st2 = state.next(m);
-            // record the move in the child
             children.add(new TicTacToeNode(st2, this, m));
         }
         backPropagate();

@@ -1,182 +1,175 @@
-// src/main/java/com/phasmidsoftware/dsaipg/projects/mcts/tictactoe/MCTS.java
 package com.phasmidsoftware.dsaipg.projects.mcts.tictactoe;
 
 import com.phasmidsoftware.dsaipg.projects.mcts.core.Node;
 import com.phasmidsoftware.dsaipg.projects.mcts.core.State;
 import com.phasmidsoftware.dsaipg.projects.mcts.core.Move;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
-/**
- * Full MCTS driver: Select→Expand→Simulate→Backpropagate with UCT,
- * plus per-phase timing printed to console (no CSV).
- */
 public class MCTS {
 
-    private static final int    SIMULATION_COUNT = 5000;
-    private static final double C                = 1.414;
+    private static final int    NUM_SIMULATIONS = 5000;
+    private static final double UCT_CONST       = 1.414;
 
-    // Accumulators for timing each phase
-    public static long totalSelectTime   = 0;
-    public static long totalExpandTime   = 0;
-    public static long totalSimulateTime = 0;
-    public static long totalBackpropTime = 0;
-    public static long totalTime         = 0;
+    private final Node<TicTacToe> root;
 
-    public final Node<TicTacToe> root;
+    // Helpers to measure each phase
+    private static class PhaseTimer {
+        private long lastStart;
+        private long lastDuration;
+        private long totalDuration;
+
+        void start() { lastStart = System.nanoTime(); }
+        void stop()  { lastDuration = System.nanoTime() - lastStart; }
+        void reset() { lastDuration = 0; }
+        void accumulate() { totalDuration += lastDuration; }
+        double totalMillis() { return totalDuration / 1_000_000.0; }
+    }
+
+    private final PhaseTimer selectTimer   = new PhaseTimer();
+    private final PhaseTimer expandTimer   = new PhaseTimer();
+    private final PhaseTimer rolloutTimer  = new PhaseTimer();
+    private final PhaseTimer backpropTimer = new PhaseTimer();
+    private final PhaseTimer totalTimer    = new PhaseTimer();
 
     public MCTS(Node<TicTacToe> root) {
         this.root = root;
     }
 
-    /**
-     *
-     * @param args
-     */
     public static void main(String[] args) {
         MCTS engine = new MCTS(new TicTacToeNode(new TicTacToe().start()));
-        Node<TicTacToe> node = engine.root;
+        engine.run();
+    }
 
-        System.out.println("Start!");
-        System.out.println(showBoard(node.state()));
-
-        // Play until terminal, advancing by MCTS‐chosen moves
+    /** Run the game until terminal, printing the board each move. */
+    public void run() {
+        System.out.println("MCTS starting...");
+        System.out.println(render(root.state()));
+        Node<TicTacToe> node = root;
         while (!node.state().isTerminal()) {
-            node = nextNodeWithTiming(node);
-            System.out.println(showBoard(node.state()));
+            node = iterate(node);
+            System.out.println(render(node.state()));
         }
-
-        // Print timing summary
-        System.out.println("Game over\n==== Timing Summary ====");
-        System.out.printf(" Selection:  %.3f ms%n", totalSelectTime   / 1e6);
-        System.out.printf(" Expansion:  %.3f ms%n", totalExpandTime   / 1e6);
-        System.out.printf(" Simulation: %.3f ms%n", totalSimulateTime / 1e6);
-        System.out.printf(" Backprop:   %.3f ms%n", totalBackpropTime / 1e6);
-        System.out.printf(" Total MCTS: %.3f ms%n", totalTime         / 1e6);
+        System.out.println("Game complete\n=== Phase Timing (ms) ===");
+        System.out.printf(" Selection:   %.3f%n", selectTimer.totalMillis());
+        System.out.printf(" Expansion:   %.3f%n", expandTimer.totalMillis());
+        System.out.printf(" Rollout:     %.3f%n", rolloutTimer.totalMillis());
+        System.out.printf(" Backprop:    %.3f%n", backpropTimer.totalMillis());
+        System.out.printf(" Overall:     %.3f%n", totalTimer.totalMillis());
     }
 
     /**
-     * Perform SIMULATION_COUNT rounds of Select→Expand→Simulate→Backpropagate
-     * from the given root, accumulate timings, then return the best‐visit child.
+     * Perform NUM_SIMULATIONS of Select→Expand→Rollout→Backpropagate,
+     * accumulate timings, then return the child with highest visits.
      */
-    public static Node<TicTacToe> nextNodeWithTiming(Node<TicTacToe> node) {
-        long selectTime = 0, expandTime = 0, simTime = 0, backTime = 0;
-        long t0 = System.nanoTime();
+    private Node<TicTacToe> iterate(Node<TicTacToe> rootNode) {
+        // reset per‐iteration timers
+        selectTimer.reset();   expandTimer.reset();
+        rolloutTimer.reset();  backpropTimer.reset();
+        totalTimer.reset();
 
-        for (int i = 0; i < SIMULATION_COUNT; i++) {
-            long t1, t2;
+        totalTimer.start();
+        for (int i = 0; i < NUM_SIMULATIONS; i++) {
+            selectTimer.start();
+            Node<TicTacToe> leaf = selectLeaf(rootNode);
+            selectTimer.stop();
 
-            t1 = System.nanoTime();
-            Node<TicTacToe> cur = select(node);
-            t2 = System.nanoTime(); selectTime += (t2 - t1);
+            expandTimer.start();
+            Node<TicTacToe> next = expandNode(leaf);
+            expandTimer.stop();
 
-            t1 = System.nanoTime();
-            cur = expand(cur);
-            t2 = System.nanoTime(); expandTime += (t2 - t1);
+            rolloutTimer.start();
+            int result = rollout(next);
+            rolloutTimer.stop();
 
-            t1 = System.nanoTime();
-            int reward = simulate(cur);
-            t2 = System.nanoTime(); simTime += (t2 - t1);
-
-            t1 = System.nanoTime();
-            backPropagate(cur, reward);
-            t2 = System.nanoTime(); backTime += (t2 - t1);
+            backpropTimer.start();
+            backpropagate(next, result);
+            backpropTimer.stop();
         }
+        totalTimer.stop();
 
-        long t1 = System.nanoTime(), total = t1 - t0;
-        totalSelectTime   += selectTime;
-        totalExpandTime   += expandTime;
-        totalSimulateTime += simTime;
-        totalBackpropTime += backTime;
-        totalTime         += total;
+        // accumulate into overall timers
+        selectTimer.accumulate();
+        expandTimer.accumulate();
+        rolloutTimer.accumulate();
+        backpropTimer.accumulate();
+        totalTimer.accumulate();
 
-        // pick the child with the highest empirical win‐rate (wins/playouts)
-        Node<TicTacToe> best = Collections.max(
-                node.children(),
-                Comparator.comparing(c -> c.wins() / (double)c.playouts())
+        // pick the most‐visited child
+        return Collections.max(
+                rootNode.children(),
+                Comparator.comparing(Node::playouts)
         );
-        return new TicTacToeNode(best.state());
     }
 
     /**
-     * UCT‐style select: unvisited first, then best UCT.
+     * UCT‐style select: unvisited first, then highest UCT value.
      */
-    public static Node<TicTacToe> select(Node<TicTacToe> node) {
+    private Node<TicTacToe> selectLeaf(Node<TicTacToe> start) {
+        Node<TicTacToe> node = start;
         while (!node.isLeaf()) {
-            if (node.children().isEmpty()) return node;
-            for (Node<TicTacToe> c : node.children())
+            List<Node<TicTacToe>> kids = (List<Node<TicTacToe>>) node.children();
+            if (kids.isEmpty()) return node;
+            // first unvisited
+            for (Node<TicTacToe> c : kids) {
                 if (c.playouts() == 0) return c;
-            node = bestUCT(node);
+            }
+            // pull out the parent‐visit count into a final local
+            final int parentPlays = node.playouts();
+            node = Collections.max(
+                    kids,
+                    Comparator.comparing(c -> uctValue(c, parentPlays))
+            );
         }
         return node;
     }
 
-    /**
-     *
-     * @param node
-     * @return
-     */
-    private static Node<TicTacToe> bestUCT(Node<TicTacToe> node) {
-        double lnN = Math.log(node.playouts());
-        return Collections.max(
-                node.children(),
-                Comparator.comparing(c ->
-                        (c.wins() / (double)c.playouts()) +
-                                C * Math.sqrt(lnN / c.playouts())
-                )
-        );
+    private double uctValue(Node<TicTacToe> child, int parentPlayouts) {
+        double winRate = child.wins() / (double) child.playouts();
+        return winRate + UCT_CONST * Math.sqrt(Math.log(parentPlayouts) / child.playouts());
     }
 
-    /**
-     * Expand all children, then pick one at random.
-     */
-    public static Node<TicTacToe> expand(Node<TicTacToe> node) {
-        if (node.isLeaf()) return node;
-        if (node.children().isEmpty()) {
-            ((TicTacToeNode) node).expandAll();
+    /** Expand all children on first call, otherwise pick one at random. */
+    private Node<TicTacToe> expandNode(Node<TicTacToe> leaf) {
+        if (leaf.isLeaf()) return leaf;
+        if (leaf.children().isEmpty()) {
+            ((TicTacToeNode) leaf).expandAll();
+            if (leaf.children().isEmpty()) return leaf;
         }
-        List<Node<TicTacToe>> kids = new ArrayList<>(node.children());
-        return kids.get(node.state().random().nextInt(kids.size()));
+        List<Node<TicTacToe>> kids = (List<Node<TicTacToe>>) leaf.children();
+        return kids.get(leaf.state().random().nextInt(kids.size()));
     }
 
-    /**
-     * Random rollout, returning 2=win,1=draw,0=loss for the start‐player.
-     */
-    public static int simulate(Node<TicTacToe> node) {
-        State<TicTacToe> st = node.state();
+    /** Random playout: +1 win, 0 draw, -1 loss for the leaf’s player. */
+    private int rollout(Node<TicTacToe> at) {
+        State<TicTacToe> st = at.state();
         int pl = st.player();
         while (!st.isTerminal()) {
             Move<TicTacToe> m = st.chooseMove(st.player());
             st = st.next(m);
         }
-        Optional<Integer> w = st.winner();
-        if (w.isEmpty())       return 1;    // draw
-        else if (w.get() == pl) return 2;   // win
-        else                    return 0;   // loss
+        return st.winner()
+                .map(w -> w == pl ? +1 : -1)
+                .orElse(0);
     }
 
-    /**
-     * Walk back up, updating visits & wins.
-     */
-    public static void backPropagate(Node<TicTacToe> node, int reward) {
-        int rootPlayer = node.state().player();
+    /** Backpropagate the +1/0/-1 result, flipping sign by player turn. */
+    private void backpropagate(Node<TicTacToe> node, int score) {
+        int origin = node.state().player();
         TicTacToeNode cur = (TicTacToeNode) node;
         while (cur != null) {
             cur.incrementPlayouts();
-            // if this node’s player equals the original, add reward; else add (2−reward)
-            int p = cur.state().player();
-            cur.addWins(p == rootPlayer ? reward : 2 - reward);
+            int cp = cur.state().player();
+            cur.addWins(cp == origin ? score : -score);
             cur = cur.getParent();
         }
     }
 
-    /**
-     * Nicely render a TicTacToeState.
-     * @param state
-     * @return
-     */
-    public static String showBoard(State<TicTacToe> state) {
-        return state.toString()
+    /** Neatly render the board replacing digits with X/O/_ */
+    private String render(State<TicTacToe> s) {
+        return s.toString()
                 .replace("-1", "_")
                 .replace("1",  "X")
                 .replace("0",  "O")
